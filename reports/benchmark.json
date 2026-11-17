@@ -1,0 +1,17 @@
+{
+  "dataset": "Contract Understanding Atticus Dataset v1 (CUAD) official test split",
+  "source_url": "https://github.com/The-Atticus-Project/cuad",
+  "input_sha256": "007b6a40b0c65247f881627375c3d2e9b6aeeb5dfa89957494feed0765a1a073",
+  "holdout_contracts": 102,
+  "candidate_passages": 5321,
+  "answerable_queries": 1244,
+  "chunk_chars": 1200,
+  "chunk_stride_chars": 900,
+  "retriever": "word unigram/bigram TF-IDF; English stop words; sublinear TF; min_df=2; cosine similarity",
+  "query_source": "CUAD question detail text (template instructions removed)",
+  "relevance_source": "CUAD annotated answer character spans; any overlapping passage is relevant",
+  "recall_at_k": {"1": 0.011254019292604502, "5": 0.04180064308681672, "10": 0.06752411575562701},
+  "mrr": 0.03394091740342391,
+  "random_candidate_recall_at_k": {"1": 0.0004326725810671921, "5": 0.002163362905336004, "10": 0.004326725810672009},
+  "limitations": "Retrieval benchmark only; CUAD labels identify clause spans, not legal correctness. Contract-disjoint test split is preserved. Overlapping character chunks are not sentence-aware; no reranker or production latency evaluation is included. This is not legal advice."
+}
