@@ -1,38 +1,33 @@
 # Contract Clause Search Workbench
 
-Retrieve relevant local contract clauses with TF-IDF and preserve clause identifiers for citation and human review.
+A local TF-IDF search tool for finding contract passages. The search results are review aids and are not legal advice.
 
-> **Portfolio prototype.** Source code is provided; no benchmark results are claimed until you run it on the cited data and record the output.
+## CUAD retrieval benchmark
 
-## Use case
+Evaluated against the official contract-disjoint test split from the [Contract Understanding Atticus Dataset (CUAD)](https://github.com/The-Atticus-Project/cuad). CUAD includes lawyer-annotated clause answer spans and is distributed under CC BY 4.0 by [The Atticus Project](https://www.atticusprojectai.org/cuad/). The benchmark preserves the 102-contract test split, creates overlapping 1,200-character passages, asks the CUAD clause-detail text as the query, and marks a passage relevant when it overlaps an annotated answer span. The input test JSON SHA-256 is \`007b6a40b0c65247f881627375c3d2e9b6aeeb5dfa89957494feed0765a1a073\`.
 
-Retrieve relevant local contract clauses with TF-IDF and preserve clause identifiers for citation and human review. The CLI consumes local files, emits reproducible reports, and keeps data out of the repository.
+| Metric | TF-IDF baseline | Random candidate baseline |
+|---|---:|---:|
+| Recall@1 | 1.13% | 0.04% |
+| Recall@5 | 4.18% | 0.22% |
+| Recall@10 | 6.75% | 0.43% |
+| MRR | 0.034 | — |
 
-## Data and provenance
+This sparse lexical baseline beats random candidate selection but has low absolute retrieval recall. It needs a stronger retrieval system and sentence-aware chunking before it is useful for legal review. CUAD relevance labels are not legal correctness judgments; this benchmark does not validate legal advice or contract interpretation. No contract text or answer spans are published. See [aggregate results](reports/benchmark.json).
 
-[CUAD contract review dataset (optional; follow its source license and terms)](https://github.com/TheAtticusProject/cuad). A local CSV with clause_id and text columns. The script stores no documents; do not commit confidential contracts. Source files are not bundled. Respect source terms and cite the dataset when publishing results.
+## Run the search tool
 
-## Quick start
+\`\`\`bash
+python -m pip install -r requirements.txt
+python main.py --input data/clauses.csv --query "termination for convenience" --id clause_id --text text --top-k 10
+\`\`\`
 
-```bash
-python -m venv .venv
-# Windows: .venv\\Scripts\\activate
-# macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-# Download/prepare the source data locally, then run:
-python main.py --input data/clauses.csv --query 'termination for convenience' --id clause_id --text text --top-k 10 --out outputs
-```
+## Reproduce the benchmark
 
-## Outputs
+Download CUAD from its [official repository](https://github.com/The-Atticus-Project/cuad), extract the test split, then run:
 
-Generated results are saved under `outputs/`; file names and metrics are printed or documented by the CLI. The repository excludes downloaded data and artifacts.
+\`\`\`bash
+python benchmark.py --input path/to/test.json --out outputs
+\`\`\`
 
-## Evaluation and operating notes
-
-Lexical similarity is not legal advice, entailment, or clause interpretation. Verify every retrieved passage against the original document and have qualified counsel review.
-
-For production use, add a frozen reference period, out-of-time evaluation, monitoring ownership, and a documented rollback or escalation path. This project is a local baseline, not a deployed service.
-
-## License
-
-No code license file is included yet. Third-party data remains subject to its source terms.
+Contract text and query outputs remain local. The repository does not redistribute source documents.
