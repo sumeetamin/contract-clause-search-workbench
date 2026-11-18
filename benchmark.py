@@ -31,7 +31,8 @@ def main():
     dataset = json.loads(source.read_text(encoding="utf-8"))
     chunks, queries = [], []
     contracts = 0
-    for contract in dataset["data"]:
+    for contract_index, contract in enumerate(dataset["data"]):
+        contract_key = str(contract.get("title") or contract_index)
         for paragraph in contract["paragraphs"]:
             context = paragraph["context"]
             offsets = build_chunks(context)
@@ -56,7 +57,7 @@ def main():
                 if not gold:
                     continue
                 detail = qa["question"].split("Details:", 1)[-1].strip()
-                queries.append({"query": detail, "gold": gold})
+                queries.append({"query": detail, "gold": gold, "candidate_indices": chunk_indices, "contract": contract_key})
 
     if not chunks or not queries:
         raise SystemExit("No candidate passages or answerable CUAD questions found.")
@@ -69,18 +70,20 @@ def main():
     hits, reciprocal_ranks = {1: 0, 5: 0, 10: 0}, []
     chance_hits = {k: 0.0 for k in hits}
     for row, item in zip(similarities, queries):
-        ranked = np.argsort(-row)
+        candidates = np.asarray(item["candidate_indices"], dtype=int)
+        ranked = candidates[np.argsort(-row[candidates])]
         first_rank = next((rank + 1 for rank, candidate in enumerate(ranked) if candidate in item["gold"]), None)
         reciprocal_ranks.append(0.0 if first_rank is None else 1.0 / first_rank)
         for k in hits:
             hits[k] += int(any(candidate in item["gold"] for candidate in ranked[:k]))
-            chance_hits[k] += min(1.0, k * len(item["gold"]) / len(chunks))
+            chance_hits[k] += min(1.0, k * len(item["gold"]) / len(item["candidate_indices"]))
 
     report = {
         "dataset": "Contract Understanding Atticus Dataset v1 (CUAD) official test split",
         "source_url": "https://github.com/The-Atticus-Project/cuad",
         "input_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "holdout_contracts": int(contracts),
+        "candidate_scope": "passages are ranked only within the source contract for each CUAD query",
         "candidate_passages": int(len(chunks)),
         "answerable_queries": int(len(queries)),
         "chunk_chars": 1200,
@@ -88,10 +91,10 @@ def main():
         "retriever": "word unigram/bigram TF-IDF; English stop words; sublinear TF; min_df=2; cosine similarity",
         "query_source": "CUAD question detail text (template instructions removed)",
         "relevance_source": "CUAD annotated answer character spans; any overlapping passage is relevant",
-        "recall_at_k": {str(k): hits[k] / len(queries) for k in hits},
+        "hit_rate_at_k": {str(k): hits[k] / len(queries) for k in hits},
         "mrr": float(np.mean(reciprocal_ranks)),
-        "random_candidate_recall_at_k": {str(k): chance_hits[k] / len(queries) for k in chance_hits},
-        "limitations": "Retrieval benchmark only; CUAD labels identify clause spans, not legal correctness. Contract-disjoint test split is preserved. Overlapping character chunks are not sentence-aware; no reranker or production latency evaluation is included. This is not legal advice.",
+        "random_candidate_hit_rate_at_k": {str(k): chance_hits[k] / len(queries) for k in chance_hits},
+        "limitations": "Retrieval benchmark only; CUAD labels identify clause spans, not legal correctness. Candidate passages are restricted to the source contract, matching the supplied query context. Reported hit rate is whether any relevant passage appears in the top k, not passage-level recall. Overlapping character chunks are not sentence-aware; no reranker or production latency evaluation is included. This is not legal advice.",
     }
     output = Path(args.out)
     output.mkdir(parents=True, exist_ok=True)
