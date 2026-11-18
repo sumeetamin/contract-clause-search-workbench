@@ -21,6 +21,17 @@ def build_chunks(document, size=1200, stride=900):
     return chunks
 
 
+def rank_candidates(similarity_row, candidate_indices):
+    """Rank only candidates supplied by the query's source-contract context."""
+    candidates = np.asarray(candidate_indices, dtype=int)
+    if candidates.ndim != 1 or candidates.size == 0:
+        raise ValueError("candidate_indices must be a non-empty vector")
+    scores = np.asarray(similarity_row)
+    if scores.ndim != 1 or candidates.min() < 0 or candidates.max() >= len(scores):
+        raise ValueError("candidate index is outside the similarity row")
+    return candidates[np.argsort(-scores[candidates], kind="stable")]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, help="CUAD SQuAD-format test.json")
@@ -70,8 +81,7 @@ def main():
     hits, reciprocal_ranks = {1: 0, 5: 0, 10: 0}, []
     chance_hits = {k: 0.0 for k in hits}
     for row, item in zip(similarities, queries):
-        candidates = np.asarray(item["candidate_indices"], dtype=int)
-        ranked = candidates[np.argsort(-row[candidates])]
+        ranked = rank_candidates(row, item["candidate_indices"])
         first_rank = next((rank + 1 for rank, candidate in enumerate(ranked) if candidate in item["gold"]), None)
         reciprocal_ranks.append(0.0 if first_rank is None else 1.0 / first_rank)
         for k in hits:
